@@ -124,6 +124,14 @@ if(NOT PYLARID_SETUP)
             COMMAND "${CMAKE_COMMAND}" -P
             "${CMAKE_BINARY_DIR}/cmake_uninstall.cmake")
     endif()
+
+    # Build test runner?
+    option(PYLARID_TEST_RUNNER "Build test runner" OFF)
+    if(PYLARID_TEST_RUNNER)
+        add_executable(run "debug/run.c")
+        target_include_directories(run PRIVATE "${Python3_INCLUDE_DIRS}")
+        target_link_libraries(run PRIVATE "${Python3_LIBRARIES}")
+    endif()
 endif()
 
 ###############################################################################

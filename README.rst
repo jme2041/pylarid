@@ -123,6 +123,52 @@ To uninstall, use::
 
     make uninstall
 
+Debugging pylarid
+=================
+
+To debug ``pylarid`` with a debugger, use a manual CMake build with the CMake
+options ``-DCMAKE_BUILD_TYPE=Debug`` and ``-DPYLARID_TEST_RUNNER=ON``. The
+former specifies a debug build and the latter instructs CMake to build the
+``pylarid`` test script runner. The test runner can be run from the ``build``
+directory::
+
+    ./run ext_path test_path test_module test_function [...]
+
+``ext_path`` is the path to the directory containing the debug build of the
+extension module, ``test_path`` is the path to the directory containing the
+test module, ``test_module`` is the name of a Python file containing test code,
+and ``test_function`` is the name of the function in ``test_module`` that the
+test runner will call. To debug ``pylarid``, insert breakpoints into the
+``pylarid`` source code and start ``run`` in a debugger.
+
+This example builds the test runner and runs the function ``debug_new_dset`` in
+``debug/debug_dset.py``. The arguments after ``debug_new_dset`` are passed to
+``debug_new_dset`` as positional parameters (formatted as strings)::
+
+    cd build
+    cmake -DPYLARID_BUILD_TYPE=Debug -DPYLARID_TEST_RUNNER=ON ..
+    make
+    lldb run . ../debug debug_dset debug_new_dset 128 128 80 300 int16 tkji
+
+This example uses the ``lldb`` debugger; to use other debuggers, modify the
+last line of code accordingly. It is also possible to start ``run`` in a GUI
+debugger and step through the ``pylarid`` extension module code.
+
+For the ``lldb`` example, the following sets a breakpoint at the entry to the
+``Dset___init__`` function in the ``larid`` extension module. The warning is
+normal; the breakpoint in the shared library will not be resolved until ``run``
+imports the python module (``debug_dset.py``), which in turn imports the
+extension module (via ``import larid``). Use ``r`` to run the program to its
+first breakpoint. Note that the suffix (``cpython-39-darwin.so``) will differ
+between systems::
+
+    lldb ./run . ../debug debug_dset debug_new_dset 128 128 80 300 int16 tkji
+    (lldb) break set -r Dset___init__ -s larid.cpython-39-darwin.so
+    Breakpoint 1: no locations (pending).
+    WARNING:  Unable to resolve breakpoint to any actual locations.
+    (lldb) r
+    ...
+
 License
 =======
 
