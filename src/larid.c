@@ -21,6 +21,12 @@
 
 #include "larid.h"
 
+#ifdef LARID_ZLIB
+static long const zlib = 1;
+#else
+static long const zlib = 0;
+#endif
+
 /*****************************************************************************/
 
 /* Require that long long integers be 64 bits. This permits the assumption that
@@ -101,6 +107,9 @@ PyInit_larid()
 
     /* Add the package version string as a global */
     if(PyModule_AddStringConstant(m, "__version__", PYLARID_VER)) goto error;
+
+    /* Add whether this is a zlib build as a global */
+    if(PyModule_AddIntConstant(m, "zlib", zlib)) goto error;
 
     /* Create an exception type for larid */
     LaridError = PyErr_NewExceptionWithDoc(

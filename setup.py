@@ -50,6 +50,8 @@ class CMakeBuild(build_ext):
     def build_extension(self, ext):
         d = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         cfg = 'Debug' if '--debug' in pylarid_options else 'Release'
+        zlib = 'OFF' if '--no-zlib' in pylarid_options else 'ON'
+        intrinsics = 'OFF' if '--no-intrinsics' in pylarid_options else 'ON'
         cmake_args = [
             '-DPYLARID_SETUP:BOOL=ON',
             '-DCMAKE_BUILD_TYPE={}'.format(cfg),
@@ -58,7 +60,9 @@ class CMakeBuild(build_ext):
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), d),
             '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(),
                                                             self.build_temp),
-            '-DPython3_EXECUTABLE={}'.format(sys.executable)
+            '-DPython3_EXECUTABLE={}'.format(sys.executable),
+            '-DPYLARID_ZLIB:BOOL={}'.format(zlib),
+            '-DPYLARID_INTRINSICS:BOOL={}'.format(intrinsics)
         ]
 
         if platform.system() == 'Windows':
@@ -97,6 +101,10 @@ def main():
     # Extract options from sys.argv
     for arg in sys.argv:
         if arg == '--debug':
+            pylarid_options.append(arg)
+        elif arg == '--no-zlib':
+            pylarid_options.append(arg)
+        elif arg == '--no-intrinsics':
             pylarid_options.append(arg)
 
     for arg in pylarid_options:

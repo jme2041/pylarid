@@ -26,9 +26,6 @@
 
 /* Floating point comparison (based on numpy.allclose); b is the reference */
 
-#define LARID_REL_TOL 1e-05         /* Relative tolerance */
-#define LARID_ABS_TOL 1e-08         /* Absolute tolerance */
-
 bool
 larid_close(double const a, double const b)
 {

@@ -9,10 +9,12 @@ Run-time Dependencies
 =====================
 
 Running ``pylarid`` requires CPython_ 3.9.2 or newer and NumPy_ 1.20.1 or
-newer.
+newer. To read and/or write gzipped NIfTI files (``.nii.gz`` files), zlib_ is
+required.
 
 .. _CPython: https://www.python.org
 .. _NumPy: https://numpy.org
+.. _zlib: https://www.zlib.net
 
 Building pylarid
 ================
@@ -24,7 +26,11 @@ specifications. ``nifti1.h`` and ``nifti2.h`` are available from the
 `Neuroimaging Informatics Technology Initiative`__. To specify where
 ``nifti1.h`` and ``nifti2.h`` are located on the build system, use the CMake
 options ``-DNIFTI1_DIR=`` and ``-DNIFTI2_DIR=`` or set the environment
-variables ``NIFTI1_DIR`` and ``NIFTI2_DIR``.
+variables ``NIFTI1_DIR`` and ``NIFTI2_DIR``. By default, ``zlib`` builds are
+enabled. To build ``pylarid`` without ``zlib`` support, use
+``-DPYLARID_ZLIB=OFF``. ``pylarid`` is built using compiler intrinsics, when
+available. To build without compiler intrinsics, use
+``-DPYLARID_INTRINSICS=OFF``.
 
 .. _CMake: https://cmake.org
 .. _NIfTI: https://nifti.nimh.nih.gov
@@ -88,6 +94,14 @@ Another alternative is to specify environment variables on the command line::
 
     NIFTI1_DIR=$HOME/include NIFTI2_DIR=$HOME/include python setup.py develop
 
+To build without ``zlib``, use::
+
+    python setup.py develop --no-zlib
+
+To build without compiler intrinsics, use::
+
+    python setup.py develop --no-intrinsics
+
 To uninstall, use::
 
     pip uninstall pylarid
@@ -102,7 +116,14 @@ example::
     python -m unittest test.test_cast --verbose
     python -m unittest test.test_rescale --verbose
 
-To run all tests, use::
+To run I/O tests, use the following. Running I/O tests downloads 48 NIfTI files
+(about 500 MB) to a subdirectory within the `test` folder called `data`. Once
+the files have been downloaded, they will not be re-downloaded unless they are
+deleted::
+
+    python -m unittest test.test_io --verbose
+
+To run all tests (which includes I/O tests), use::
 
     python -m unittest --verbose
 

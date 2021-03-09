@@ -493,6 +493,10 @@ static PyGetSetDef Dset_getsetters[] = {
 /* Table of methods for larid.Dset */
 
 static PyMethodDef Dset_methods[] = {
+    { "like_nifti", (PyCFunction)Dset_like_nifti,
+        METH_CLASS | METH_VARARGS |  METH_KEYWORDS, Dset_like_nifti__doc__ },
+    { "from_nifti", (PyCFunction)Dset_from_nifti,
+        METH_CLASS | METH_O, Dset_from_nifti__doc__ },
     { "copy", (PyCFunction)Dset_copy,
         METH_NOARGS, Dset_copy__doc__ },
     { "to_datatype", (PyCFunction)Dset_to_datatype,

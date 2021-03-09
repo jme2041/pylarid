@@ -40,12 +40,21 @@
 
 /*****************************************************************************/
 
+/* Tolerance for floating-point comparisons */
+
+#define LARID_REL_TOL 1e-05         /* Relative tolerance */
+#define LARID_ABS_TOL 1e-08         /* Absolute tolerance */
+
+/*****************************************************************************/
+
 /* Forward declarations */
 
 extern PyObject * LaridError;
 extern PyTypeObject DsetType;
 extern char const Dset_to_datatype__doc__[];
 extern char const Dset_rescale__doc__[];
+extern char const Dset_like_nifti__doc__[];
+extern char const Dset_from_nifti__doc__[];
 
 /*****************************************************************************/
 
@@ -151,6 +160,12 @@ Dset_set_morder(
 
 PyObject *
 Dset_rescale(DsetObject * self, PyObject * args, PyObject * kwds);
+
+PyObject *
+Dset_like_nifti(PyTypeObject * type, PyObject * args, PyObject * kwds);
+
+PyObject *
+Dset_from_nifti(PyTypeObject * type, PyObject * arg);
 
 /*****************************************************************************/
 

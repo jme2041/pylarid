@@ -90,7 +90,69 @@ list(APPEND larid_sources
     "src/dset.c"
     "src/datatype.c"
     "src/morder.c"
-    "src/rescale.c")
+    "src/rescale.c"
+    "src/io.c")
+
+option(PYLARID_ZLIB "Build with zlib when possible" ON)
+if(PYLARID_ZLIB)
+    find_package(ZLIB)
+    if(ZLIB_FOUND)
+        list(APPEND larid_c_defines LARID_ZLIB)
+        list(APPEND larid_private_includes "${ZLIB_INCLUDE_DIRS}")
+        list(APPEND larid_link_libraries "${ZLIB_LIBRARIES}")
+    endif()
+endif()
+
+option(PYLARID_INTRINSICS "Build with compiler intrinsics when possible" ON)
+if(PYLARID_INTRINSICS)
+    include(CheckCSourceRuns)
+
+    # Look for byte-swapping functions
+    check_c_source_runs(
+        "int main(void) { return !__builtin_bswap16(0x0123) == 0x2310; }"
+        HAVE__BUILTIN_BSWAP16)
+
+    check_c_source_runs(
+        "int main(void) { return !__builtin_bswap32(0x01234567) == 0x67452301; }"
+        HAVE__BUILTIN_BSWAP32)
+
+    check_c_source_runs(
+        "int main(void) { return !__builtin_bswap64(0x0123456789abcdef) == 0xfecdab8967452301; }"
+        HAVE__BUILTIN_BSWAP64)
+
+    if(WIN32)
+        check_c_source_runs(
+            "int main(void) { return !_byteswap_ushort(0x0123) == 0x2310; }"
+            HAVE__BYTESWAP_USHORT)
+
+        check_c_source_runs(
+            "int main(void) { return !_byteswap_ulong(0x01234567) == 0x67452301; }"
+            HAVE__BYTESWAP_ULONG)
+
+        check_c_source_runs(
+            "int main(void) { return !_byteswap_uint64(0x0123456789abcdef) == 0xfecdab8967452301; }"
+            HAVE__BYTESWAP_UINT64)
+    endif(WIN32)
+
+    # Prefer _builtin_swap; fallback to _byteswap; second fallback to none
+    if(HAVE__BUILTIN_BSWAP16)
+        list(APPEND larid_c_defines "HAVE__BUILTIN_BSWAP16")
+    elseif(HAVE__BYTESWAP_USHORT)
+        list(APPEND larid_c_defines "HAVE__BYTESWAP_USHORT")
+    endif()
+
+    if(HAVE__BUILTIN_BSWAP32)
+        list(APPEND larid_c_defines "HAVE__BUILTIN_BSWAP32")
+    elseif(HAVE__BYTESWAP_ULONG)
+        list(APPEND larid_c_defines "HAVE__BYTESWAP_ULONG")
+    endif()
+
+    if(HAVE__BUILTIN_BSWAP64)
+        list(APPEND larid_c_defines "HAVE__BUILTIN_BSWAP64")
+    elseif(HAVE__BYTESWAP_UINT64)
+        list(APPEND larid_c_defines "HAVE__BYTESWAP_UINT64")
+    endif()
+endif()
 
 # Build the extension module
 Python3_add_library(larid MODULE ${larid_sources})
@@ -106,6 +168,7 @@ endif()
 target_compile_options(larid PRIVATE ${larid_compile_options})
 target_compile_definitions(larid PRIVATE ${larid_c_defines})
 target_include_directories(larid PRIVATE ${larid_includes})
+target_link_libraries(larid PRIVATE ${larid_link_libraries})
 
 if(NOT PYLARID_SETUP)
     # Install target
