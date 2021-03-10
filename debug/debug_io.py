@@ -38,4 +38,12 @@ def debug_from_nifti(path):
     obj = larid.Dset.from_nifti(path)
     print(obj)
 
+
+def debug_to_nifti(source, destination, nifti_ver=2):
+    obj1 = larid.Dset.from_nifti(source)
+    obj1.to_nifti(destination, nifti_ver)
+    obj2 = larid.Dset.from_nifti(destination)
+    print(obj1)
+    print(obj2)
+
 ###############################################################################

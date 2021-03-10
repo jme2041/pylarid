@@ -255,6 +255,88 @@ nifti_1to2(
 
 /*****************************************************************************/
 
+/* Convert a NIfTI-2 header to a NIfTI-1.1 header. Upon success, returns true.
+ * Upon failure, sets a Python exception and returns false. This function sets
+ * vox_offset and magic[1] to zero. These values depend on the output format
+ * and are thus set by larid.Dset.to_nifti().
+ */
+
+static bool
+nifti_2to1(
+    nifti_2_header const * const restrict p2,
+    nifti_1_header * const restrict p1)
+{
+    assert(!PyErr_Occurred());
+    assert(p2);
+    assert(p1);
+
+    memset(p1, 0, sizeof(*p1));
+    p1->sizeof_hdr = sizeof(*p1);
+    p1->dim_info = p2->dim_info;
+    for(size_t i = 0; i < sizeof(p1->dim)/sizeof(*(p1->dim)); i++)
+    {
+        if(p2->dim[i] < INT16_MIN || p2->dim[i] > INT16_MAX) goto range;
+        p1->dim[i] = (int16_t)p2->dim[i];
+    }
+    p1->intent_p1 = (float)p2->intent_p1;
+    p1->intent_p2 = (float)p2->intent_p2;
+    p1->intent_p3 = (float)p2->intent_p3;
+    if(p2->intent_code < INT16_MIN || p2->intent_code > INT16_MAX) goto range;
+    p1->intent_code = (int16_t)p2->intent_code;
+    p1->datatype = p2->datatype;
+    p1->bitpix = p2->bitpix;
+    if(p2->slice_start < INT16_MIN || p2->slice_start > INT16_MAX) goto range;
+    p1->slice_start = (int16_t)p2->slice_start;
+    for(size_t i = 0; i < sizeof(p1->pixdim)/sizeof(*(p1->pixdim)); i++)
+    {
+        p1->pixdim[i] = (float)p2->pixdim[i];
+    }
+    p1->scl_slope = (float)p2->scl_slope;
+    p1->scl_inter = (float)p2->scl_inter;
+    if(p2->slice_end < INT16_MIN || p2->slice_end > INT16_MAX) goto range;
+    p1->slice_end = (int16_t)p2->slice_end;
+    if(p2->slice_code < 0 || p2->slice_code > UINT8_MAX) goto range;
+    p1->slice_code = (int8_t)p2->slice_code;
+    if(p2->xyzt_units < 0 || p2->xyzt_units > UINT8_MAX) goto range;
+    p1->xyzt_units = (int8_t)p2->xyzt_units;
+    p1->cal_max = (float)p2->cal_max;
+    p1->cal_min = (float)p2->cal_min;
+    p1->slice_duration = (float)p2->slice_duration;
+    p1->toffset = (float)p2->toffset;
+    memcpy(p1->descrip, p2->descrip, sizeof(p1->descrip));
+    memcpy(p1->aux_file, p2->aux_file, sizeof(p1->aux_file));
+    if(p2->qform_code < INT16_MIN || p2->qform_code > INT16_MAX) goto range;
+    p1->qform_code = (int16_t)p2->qform_code;
+    if(p2->sform_code < INT16_MIN || p2->sform_code > INT16_MAX) goto range;
+    p1->sform_code = (int16_t)p2->sform_code;
+    p1->quatern_b = (float)p2->quatern_b;
+    p1->quatern_c = (float)p2->quatern_c;
+    p1->quatern_d = (float)p2->quatern_d;
+    p1->qoffset_x = (float)p2->qoffset_x;
+    p1->qoffset_y = (float)p2->qoffset_y;
+    p1->qoffset_z = (float)p2->qoffset_z;
+    for(size_t i = 0; i < sizeof(p1->srow_x)/sizeof(*(p1->srow_x)); i++)
+    {
+        p1->srow_x[i] = (float)p2->srow_x[i];
+        p1->srow_y[i] = (float)p2->srow_y[i];
+        p1->srow_z[i] = (float)p2->srow_z[i];
+    }
+    memcpy(p1->intent_name, p2->intent_name, sizeof(p1->intent_name));
+    p1->magic[0] = 0x6E;
+    p1->magic[2] = 0x31;
+
+    assert(!PyErr_Occurred());
+    return true;
+
+range:
+    PyErr_SetString(
+        LaridError,
+        "Could not export to NIfTI-1.1 format: header value out of range");
+    return false;
+}
+
+/*****************************************************************************/
+
 /* Test whether a string ends with a substring */
 
 static bool
@@ -541,6 +623,85 @@ larid_fread(void * buf, size_t size, size_t count, LARID_FILE f)
         {
             PyErr_Format(PyExc_IOError,
                          "Error reading from file: '%s'",
+                         f->name);
+        }
+        goto except;
+    }
+
+    assert(!PyErr_Occurred());
+    ret = true;
+    goto finally;
+
+except:
+    assert(PyErr_Occurred());
+    ret = false;
+
+finally:
+    return ret;
+}
+
+/* Write to a file. Assume that short writes are an error. Upon success,
+ * returns true. Upon failure, sets a Python exception and returns false.
+ */
+
+static bool
+larid_fwrite(void const * buf, size_t size, size_t count, LARID_FILE f)
+{
+    bool ret;
+
+    assert(!PyErr_Occurred());
+    assert(f);
+    assert(f->name);
+
+#ifdef LARID_ZLIB
+    if(f->zfp)
+    {
+        char const * cbuf = (char const *)buf;
+        size_t remain = size*count;
+        unsigned n2write;
+        int nwritten;
+
+        while(remain > 0)
+        {
+            n2write = (remain < (size_t)LARID_ZLIB_MAX_BLOCK_SIZE ?
+                remain : LARID_ZLIB_MAX_BLOCK_SIZE);
+            nwritten = gzwrite(f->zfp, (void const *)cbuf, n2write);
+            if(nwritten != (int)n2write)
+            {
+                if(errno != 0)
+                {
+                    PyErr_SetFromErrnoWithFilename(PyExc_IOError, f->name);
+                }
+                else
+                {
+                    PyErr_Format(PyExc_IOError,
+                                 "Error writing to file: '%s'",
+                                 f->name);
+                }
+                goto except;
+            }
+            remain -= nwritten;
+            cbuf += nwritten;
+        }
+
+        assert(remain == 0);
+        assert(!PyErr_Occurred());
+        ret = true;
+        goto finally;
+    }
+#endif
+
+    assert(f->fp);  /* If we get here on either build, f->fp must be valid */
+    if(fwrite(buf, size, count, f->fp) != count)
+    {
+        if(errno != 0)
+        {
+            PyErr_SetFromErrnoWithFilename(PyExc_IOError, f->name);
+        }
+        else
+        {
+            PyErr_Format(PyExc_IOError,
+                         "Error writing to file: '%s'",
                          f->name);
         }
         goto except;
@@ -1078,6 +1239,194 @@ except:
 
 finally:
     Py_XDECREF(path);
+    return ret;
+}
+
+/*****************************************************************************/
+
+/* larid.Dset.to_nifti */
+
+char const Dset_to_nifti__doc__[] = PyDoc_STR(
+"to_nifti($self, /, path, nifti_ver=2)\n"
+"--\n"
+"\n"
+"Write the dataset to a NIfTI file identified by path. If the file\n"
+"already exists, it is overwritten. Use nifti_ver to specify the\n"
+"NIfTI version (1 or 2).");
+
+PyObject *
+Dset_to_nifti(DsetObject * self, PyObject * args, PyObject * kwds)
+{
+    static char const * const kwlist[] = { "path", "nifti_ver", NULL };
+
+    PyObject * ret = NULL;
+    PyObject * path = NULL;
+    LARID_FILE f1 = NULL;
+    LARID_FILE f2 = NULL;
+    int nifti_ver = 2;
+    bool kjit = false, st1, st2;
+
+    assert(!PyErr_Occurred());
+
+    if(!PyArg_ParseTupleAndKeywords(args, kwds,
+                                    "O&|i:Dset_to_nifti", (char **)kwlist,
+                                    PyUnicode_FSConverter, &path,
+                                    &nifti_ver)) goto except;
+
+    /* Check nifti_ver */
+    if(nifti_ver != 1 && nifti_ver != 2)
+    {
+        PyErr_Format(PyExc_ValueError, "Invalid nifti_ver: %d", nifti_ver);
+        goto except;
+    }
+
+    /* Check the file extension to determine output format */
+    bool nifti_pair;
+    bool gzip;
+    if(ends_with(PyBytes_AsString(path), ".hdr"))
+    {
+        nifti_pair = true;
+        gzip = false;
+    }
+    else if(ends_with(PyBytes_AsString(path), ".hdr.gz"))
+    {
+        nifti_pair = true;
+        gzip = true;
+    }
+    else if(ends_with(PyBytes_AsString(path), ".nii"))
+    {
+        nifti_pair = false;
+        gzip = false;
+    }
+    else if(ends_with(PyBytes_AsString(path), ".nii.gz"))
+    {
+        nifti_pair = false;
+        gzip = true;
+    }
+    else
+    {
+        PyErr_Format(LaridError, "Invalid NIfTI file extension: '%s'", path);
+        goto except;
+    }
+
+#ifndef LARID_ZLIB
+    if(gzip)
+    {
+        PyErr_Format(LaridError, "Gzipped files not supported: '%s'", path);
+        goto except;
+    }
+#endif
+
+    /* Open the file for writing */
+    if(!(f1 = larid_fopen(PyBytes_AsString(path), "wb", gzip))) goto except;
+
+    long vox_offset;
+    if(nifti_ver == 1)
+    {
+        /* Create a NIfTI-1.1 header */
+        nifti_1_header hdr1;
+        if(!nifti_2to1(&self->hdr, &hdr1)) goto except;
+
+        /* Set vox_offset and magic[1] */
+        if(nifti_pair)
+        {
+            hdr1.vox_offset = 0.0f;
+            hdr1.magic[1] = 0x69;           /* i */
+        }
+        else
+        {
+            hdr1.vox_offset = 352.0f;       /* no extensions */
+            hdr1.magic[1] = 0x2B;           /* + */
+        }
+
+        vox_offset = (long)hdr1.vox_offset;
+
+        /* Write the NIfTI header */
+        if(!larid_fwrite(&hdr1, sizeof(hdr1), 1, f1)) goto except;
+    }
+    else
+    {
+        /* Set vox_offset and magic[1] */
+        if(nifti_pair)
+        {
+            self->hdr.vox_offset = 0ll;
+            self->hdr.magic[1] = 0x69;      /* i */
+        }
+        else
+        {
+            self->hdr.vox_offset = 544ll;   /* no extensions */
+            self->hdr.magic[1] = 0x2B;      /* + */
+        }
+
+        vox_offset = (long)self->hdr.vox_offset;
+
+        /* Write the NIfTI header */
+        if(!larid_fwrite(&self->hdr, sizeof(self->hdr), 1, f1)) goto except;
+    }
+
+    if(nifti_pair)
+    {
+        /* Write four more bytes (this is typical for .hdr files) */
+        int32_t zero = 0;
+        if(!larid_fwrite(&zero, sizeof(zero), 1, f1)) goto except;
+
+        /* Get the name of the corresponding image file and open it */
+        char * img = get_image_fname(PyBytes_AsString(path));
+        if(!img) goto except;
+        f2 = larid_fopen(img, "wb", gzip);
+        PyMem_Free(img);
+        if(!f2) goto except;
+    }
+
+    /* Seek to vox_offset */
+    if(!larid_fseek(f2 ? f2 : f1, vox_offset)) goto except;
+
+    /* If needed, temporarily switch to tkji order */
+    kjit = (self->morder == LARID_MORDER_KJIT);
+    if(kjit)
+    {
+        PyObject * morder = PyUnicode_FromString("tkji");
+        if(!morder) goto except;
+        bool st = (Dset_set_morder(self, morder, NULL) == 0);
+        Py_DECREF(morder);
+        if(!st) goto except;
+    }
+
+    /* Write the data */
+    if(!larid_fwrite(
+        PyArray_DATA((PyArrayObject *)self->data),
+        PyArray_ITEMSIZE((PyArrayObject *)self->data),
+        PyArray_SIZE((PyArrayObject *)self->data),
+        f2 ? f2 : f1)) goto except;
+
+    assert(!PyErr_Occurred());
+    Py_INCREF(Py_None);
+    ret = Py_None;
+    goto finally;
+
+except:
+    Py_XDECREF(ret);
+    assert(PyErr_Occurred());
+    ret = NULL;
+
+finally:
+    st1 = larid_fclose(f1);     /* Always returns true on subsequent passes */
+    f1 = NULL;
+    st2 = larid_fclose(f2);     /* Always returns true on subsequent passes */
+    f2 = NULL;
+    if(!st1 || !st2) goto except;
+
+    if(kjit)
+    {
+        /* If needed, switch back to kjit order */
+        PyObject * morder = PyUnicode_FromString("kjit");
+        if(!morder) goto except;
+        bool st = (Dset_set_morder(self, morder, NULL) == 0);
+        Py_DECREF(morder);
+        if(!st) goto except;
+    }
+
+    Py_XDECREF(path);           /* This is only called once */
     return ret;
 }
 

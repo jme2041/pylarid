@@ -55,6 +55,7 @@ extern char const Dset_to_datatype__doc__[];
 extern char const Dset_rescale__doc__[];
 extern char const Dset_like_nifti__doc__[];
 extern char const Dset_from_nifti__doc__[];
+extern char const Dset_to_nifti__doc__[];
 
 /*****************************************************************************/
 
@@ -166,6 +167,9 @@ Dset_like_nifti(PyTypeObject * type, PyObject * args, PyObject * kwds);
 
 PyObject *
 Dset_from_nifti(PyTypeObject * type, PyObject * arg);
+
+PyObject *
+Dset_to_nifti(DsetObject * self, PyObject * args, PyObject * kwds);
 
 /*****************************************************************************/
 

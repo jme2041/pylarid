@@ -309,6 +309,93 @@ class TestRead4D(TestRead):
         self.check_switch_both(path)
 
 
+class TestWrite(TestIO):
+    """Test writing NIfTI files"""
+
+    source = None
+    template = None
+
+    def check_write(self):
+        # Check writing TestWrite.source to NIfTI
+        for morder in ('tkji', 'kjit'):
+            TestWrite.source.morder = morder
+            for nifti_ver in (1, 2):
+                for fmt in ('.hdr', '.hdr.gz', '.nii', '.nii.gz'):
+                    with self.subTest(
+                            morder=morder, nifti_ver=nifti_ver, fmt=fmt):
+                        path = os.path.join(datadir,
+                                            'tmp%d%s' % (nifti_ver, fmt))
+                        if larid.zlib == 0 and path.endswith('.gz'):
+                            with self.assertRaisesRegex(
+                                    larid.LaridError,
+                                    'Gzipped files not supported'):
+                                TestWrite.source.to_nifti(path, nifti_ver)
+                        else:
+                            try:
+
+                                TestWrite.source.to_nifti(path, nifti_ver)
+                                dset = larid.Dset.from_nifti(path)
+                                self.check_attribs(dset)
+                                self.assertTrue(numpy.allclose(
+                                    TestWrite.template.data,
+                                    dset.data))
+                            finally:
+                                if os.path.isfile(path):
+                                    os.remove(path)
+                                path = path.replace('.hdr', '.img')
+                                if os.path.isfile(path):
+                                    os.remove(path)
+
+
+class TestWrite3D(TestWrite):
+    """Test writing the 3D demonstration dataset"""
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(datadir, 'str2l.nii')
+        TestWrite.source = larid.Dset.from_nifti(path)
+        TestWrite.template = TestWrite.source.copy()
+
+    def test_noarg(self):
+        with self.assertRaises(TypeError):
+            TestWrite.source.to_nifti()
+
+    def test_bad_path_type(self):
+        with self.assertRaises(TypeError):
+            TestWrite.source.to_nifti(1)
+
+    def test_bad_extension(self):
+        with self.assertRaisesRegex(larid.LaridError,
+                                    'Invalid NIfTI file extension'):
+            TestWrite.source.to_nifti('fake.bin')
+
+    def test_bad_nifti_ver_type(self):
+        with self.assertRaises(TypeError):
+            TestWrite.source.to_nifti(os.path.join(datadir, 'test.nii'), '1')
+
+    def test_bad_nifti_ver(self):
+        with self.assertRaisesRegex(ValueError, 'Invalid nifti_ver: 3'):
+            TestWrite.source.to_nifti(os.path.join(datadir, 'test.nii'), 3)
+
+    def test_good(self):
+        self.demo = demo3d
+        self.check_write()
+
+
+class TestWrite4D(TestWrite):
+    """Test writing the 4D demonstration dataset"""
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(datadir, 'fun2l.nii')
+        TestWrite.source = larid.Dset.from_nifti(path)
+        TestWrite.template = TestWrite.source.copy()
+
+    def test_good(self):
+        self.demo = demo4d
+        self.check_write()
+
+
 if __name__ == '__main__':
     unittest.main()
 
