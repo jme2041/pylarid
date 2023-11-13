@@ -1,0 +1,24 @@
+# pylarid: Load Arrays of Imaging Data
+# Copyright 2023 Jeffrey Michael Engelmann
+
+if(NOT EXISTS "@CMAKE_BINARY_DIR@/install_manifest.txt")
+    message(FATAL_ERROR "Cannot find install manifest")
+endif()
+
+file(READ "@CMAKE_BINARY_DIR@/install_manifest.txt" files)
+string(REGEX REPLACE "\n" ";" files "${files}")
+foreach(file ${files})
+    message(STATUS "Uninstalling $ENV{DESTDIR}${file}")
+    if(IS_SYMLINK "$ENV{DESTDIR}${file}" OR EXISTS "$ENV{DESTDIR}${file}")
+        execute_process(COMMAND "@CMAKE_COMMAND@"
+                "-E" "rm" "-f" "$ENV{DESTDIR}${file}"
+                RESULT_VARIABLE rm_result)
+        if(NOT "${rm_result}" STREQUAL "0")
+            message(FATAL_ERROR "Error removing $ENV{DESTDIR}${file}")
+        endif()
+    else()
+        message(STATUS "Skipping: $ENV{DESTDIR}${file} (file does not exist)")
+    endif()
+endforeach()
+
+###############################################################################
