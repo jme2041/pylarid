@@ -11,7 +11,7 @@ endif()
 
 find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 
-Python_add_library(pylarid MODULE "src/pylarid.cpp" WITH_SOABI)
+Python_add_library(pylarid MODULE "src/pylarid.cpp" "src/dset.cpp" WITH_SOABI)
 
 if(MSVC)
     target_compile_options(pylarid PRIVATE /W4)

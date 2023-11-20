@@ -39,7 +39,16 @@ optional, but recommended for speeding up builds and for avoiding warnings
 about the intermediate directory being temporary when building with Visual
 Studio (warning MSB8029).
 
+To run unit tests, use `pytest`:
+
+```
+pip install pytest
+python -m pytest
+```
+
 To uninstall, use `pip uninstall pylarid`.
+
+To create a source distribution, use `python -m build --sdist`.
 
 ## Manual Build Using CMake (advanced)
 

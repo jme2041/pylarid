@@ -1,9 +1,9 @@
 // pylarid: Load Arrays of Imaging Data
 // Copyright 2023 Jeffrey Michael Engelmann
 
-#include <Python.h>
+#include "dset.h"
 
-PyDoc_STRVAR(pylarid__doc__,
+PyDoc_STRVAR(pylarid_doc,
     "Load Arrays of Imaging Data\n"
     "\n"
     "pylarid is intended to facilitate analysis of magnetic resonance\n"
@@ -38,24 +38,39 @@ PyDoc_STRVAR(pylarid__doc__,
 
 static PyModuleDef pylarid_module = {
     .m_name = "pylarid",
-    .m_doc = pylarid__doc__,
+    .m_doc = pylarid_doc,
     .m_size = -1
 };
 
 PyMODINIT_FUNC
-PyInit_pylarid() {
+PyInit_pylarid()
+{
+    if (PyType_Ready(&DsetType))
+    {
+        return nullptr;
+    }
 
     // Create the extension module object
-    auto const m = PyModule_Create(&pylarid_module);
+    PythonObject m(PyModule_Create(&pylarid_module));
 
     // Add the package version string as a global
-    if (PyModule_AddStringConstant(m, "__version__", PYLARID_VER)) {
-        Py_DECREF(m);
+    if (PyModule_AddStringConstant(m.get(), "__version__", PYLARID_VER))
+    {
+        return nullptr;
+    }
+
+    Py_INCREF(&DsetType);
+    if (PyModule_AddObject(
+        m.get(),
+        "Dset",
+        reinterpret_cast<PyObject*>(&DsetType)))
+    {
+        Py_DECREF(&DsetType);
         return nullptr;
     }
 
     assert(!PyErr_Occurred());
-    return m;
+    return m.release();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
